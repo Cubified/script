@@ -3,15 +3,12 @@
  */
 
 /* Header text displayed at top of screen next to progress bar */
-static char GREETING[] = BLUE "Welcome to " GREEN "sinit v" VER
-#ifdef IS_DEBUG_BUILD
-  MAGENTA " (debug)"
-#endif
-  BLUE " running on " YELLOW "Alpine Linux 3.12";
-
-static int GREETING_LEN = 
-#ifdef IS_DEBUG_BUILD
-  60;
-#else
-  52;
-#endif
+#ifndef DO_NOT_DEFINE_GREETING
+#  ifdef IS_DEBUG_BUILD
+#    define GREETING BLUE "script " GREEN "v" VER MAGENTA " (debug)"
+#    define GREETING_LEN  21
+#  else
+#    define GREETING BLUE "script " GREEN "v" VER
+#    define GREETING_LEN  13
+#  endif /* IS_DEBUG_BUILD */
+#endif /* DO_NOT_DEFINE_GREETING */

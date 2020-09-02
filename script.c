@@ -187,7 +187,7 @@ void ui_header(){
 
   esc_set_cursor(0, 0);
 
-  printf(CYAN "<= %s" CYAN " ", GREETING);
+  printf(CYAN "<= " GREETING CYAN " ");
   ui_fill(prog_len, '=', GREEN);
   ui_fill(new_w-prog_len, '.', CYAN);
   printf("%s>" RESET, progress==1?GREEN:CYAN);

@@ -1,6 +1,6 @@
 #!/bin/sh
 
 sleep 2
-echo dunham
+echo world
 
 exit 0
