@@ -2,7 +2,7 @@
 
 A generic, configuration-free script dispatcher, useful for running init scripts in parallel.
 
-I wrote this because I wanted a custom init which both booted quickly and was pleasing to look at (two goals which generally tend to be at odds with one another...).  While the core of this project is not an init, the scripts provided in `init.d/`, coupled with [sinit](https://core.suckless.org/sinit), can boot a usable system.
+I wrote this because I wanted a custom init which both booted quickly and was pleasing to look at (two goals which generally tend to be at odds with one another...).  While the core of this project is not an init, the scripts provided in `init.d/` (and `halt.d/`), coupled with [fpinit](https://github.com/Cubified/fpinit) (my modified version of [sinit](https://core.suckless.org/sinit)), can boot (and halt) a usable system.
 
 ### Demo
 
