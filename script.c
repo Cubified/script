@@ -23,8 +23,6 @@
 #include <math.h>
 #include <time.h>
 
-#include "config.h"
-
 //////////////////////////////
 // PREPROCESSOR
 //
@@ -43,7 +41,14 @@
 #define IS_NOT_DIR(name) ((name[0] != '.' && name[1] != '\0') && \
                           (name[0] != '.' && name[1] != '.' && name[2] != '\0'))
 
+#define IS_NOT_TITLE(name) strcmp(name, "title") != 0
+
 #define IS_IN_RUNLEVEL(name) (runlevel <= 9 ? name[0] == '0'+runlevel : (name[0]-'0' > 9 || name[0]-'0' < 0))
+
+//////////////////////////////
+// CONFIG
+//
+#include "config.h"
 
 //////////////////////////////
 // ENUMS AND TYPEDEFS
@@ -71,9 +76,11 @@ void ui_init();
 void ui_fill(int len, char c, char *color);
 void ui_header();
 void ui_job(char *title, int state);
+void ui_runlevel(int runlevel);
 void pid_init();
 void pid_add(char *name, pid_t pid);
 child *pid_find(pid_t pid);
+char *dir_title(char *filename);
 int dir_scan(char *dir);
 
 //////////////////////////////
@@ -86,6 +93,7 @@ int job_count = 0,
     job_ind = 0;
 volatile sig_atomic_t job_compl = 0;
 int n_failures = 0;
+char *title_buf;
 double progress;
 clock_t start;
 
@@ -99,7 +107,17 @@ void sighandler(int signo){
   int status;
   child *proc;
 
-  if((pid = waitpid(-1, &status, WNOHANG)) != -1){
+  if(signo == SIGINT ||
+     signo == SIGTERM ||
+     signo == SIGQUIT){
+    free(active_pids);
+    free(title_buf);
+    esc_toggle_cursor(1);
+
+    printf(YELLOW "\n\nHalting prematurely after " MAGENTA "%f" YELLOW " seconds with " BLUE "%i/%i" YELLOW " completed jobs.\n", ((double)(clock()-start))/CLOCKS_PER_SEC, job_compl, job_count);
+
+    exit(0);
+  } else if((pid = waitpid(-1, &status, WNOHANG)) != -1){
     if((proc=pid_find(pid)) != NULL){
       job_compl++;
       if(status != STATE_SUCCESS){
@@ -146,7 +164,7 @@ void ui_init(){
   ui_h = s.ws_row;
 
   ui_x = 0;
-  ui_y = 3;
+  ui_y = 1;
 
   progress = 0;
 }
@@ -161,9 +179,7 @@ void ui_fill(int len, char c, char *color){
 }
 
 void ui_header(){
-  int new_w,
-      prog_len,
-      i;
+  int new_w, prog_len;
 
   progress = (double)job_compl/(double)(job_count==0?1:job_count);
   new_w = ui_w-GREETING_LEN-5;
@@ -171,17 +187,17 @@ void ui_header(){
 
   esc_set_cursor(0, 0);
 
-  printf(CYAN "<= " GREETING CYAN " ");
+  printf(CYAN "<= %s" CYAN " ", GREETING);
   ui_fill(prog_len, '=', GREEN);
   ui_fill(new_w-prog_len, '.', CYAN);
-  printf("%s>\n\n" RESET, progress==1?GREEN:CYAN);
+  printf("%s>" RESET, progress==1?GREEN:CYAN);
 }
 
 void ui_job(char *title, int state){
   char *state_text;
 
-  printf("%s ", title);
-  ui_fill(ui_w-strlen(title)-8, '.', CYAN);
+  printf(" %s%s ", (state == STATE_FAILURE ? RED : (state == STATE_SUCCESS ? GREEN : RESET)), title);
+  ui_fill(ui_w-strlen(title)-9, '.', CYAN);
 
   switch(state){
     case STATE_RUNNING:
@@ -194,9 +210,16 @@ void ui_job(char *title, int state){
     case STATE_FAILURE:
       state_text = RED "!!" RESET;
       break;
+    default:
+      return;
   }
 
   printf(BLUE " [ %s " BLUE "]\n" RESET, state_text);
+}
+
+void ui_runlevel(int runlevel){
+  printf(YELLOW "\n\nEntering runlevel %i\n" RESET, runlevel);
+  ui_y += 2;
 }
 
 //////////////////////////////
@@ -225,21 +248,53 @@ child *pid_find(pid_t pid){
   return NULL;
 }
 
+char *dir_title(char *filename){
+  char *substr, out[256];
+  
+  substr = strstr(title_buf, filename);
+
+  if(substr != NULL &&
+     sscanf(substr+strlen(filename)+2, "%[^\n]", out) > 0){
+    return strdup(out);
+  } else {
+    return strdup(filename);
+  }
+}
+
 int dir_scan(char *dir){
   DIR *dp;
-  int fd, i, runlevel = 0;
+  FILE *fp;
+  int fd, i,
+      runlevel = 0,
+      has_printed_runlevel = 0;
   pid_t pid;
-  char buf[256];
+  char buf[512], *tmp;
   struct dirent *ep;
   dp = opendir(dir);
 
   if(dp != NULL){
     start = clock();
 
-    while(ep = readdir(dp)){
-      job_count++;
+    while((ep = readdir(dp))){
+      if(IS_NOT_DIR(ep->d_name) &&
+         IS_NOT_TITLE(ep->d_name)){
+        job_count++;
+      } else if(!IS_NOT_TITLE(ep->d_name)){
+        sprintf(buf, "%s/%s", dir, ep->d_name);
+        fp = fopen(buf, "r");
+        if(fp == NULL){
+          printf(RED "Error: failed to open file \"" MAGENTA "title" RED "\" for reading.\n");
+          return 1;
+        }
+        fseek(fp, 0, SEEK_END);
+        i = ftell(fp);
+        fseek(fp, 0, SEEK_SET);
+
+        title_buf = malloc(i+1);
+        fread(title_buf, i, 1, fp);
+        fclose(fp);
+      }
     }
-    job_count -= 2;
     closedir(dp);
     pid_init();
 
@@ -247,36 +302,46 @@ int dir_scan(char *dir){
       while(job_compl < job_count_runlevel);
 
       dp = opendir(dir);
-      while(ep = readdir(dp)){
+      while((ep = readdir(dp))){
         if(IS_NOT_DIR(ep->d_name) &&
+           IS_NOT_TITLE(ep->d_name) &&
            IS_IN_RUNLEVEL(ep->d_name)){
           if((pid=fork()) == 0){
             sprintf(buf, "%s/%s", dir, ep->d_name);
 
+#ifndef IS_DEBUG_BUILD
             fd = open("/dev/null", O_WRONLY);
             dup2(fd, 1);
             dup2(fd, 2);
             close(fd);
+#endif
 
             execv(buf, NULL);
           } else {
-            pid_add(strdup(ep->d_name), pid);
-            ui_job(ep->d_name, STATE_RUNNING);
+            if(!has_printed_runlevel){
+              ui_runlevel(runlevel);
+              has_printed_runlevel = 1;
+            }
+            tmp = dir_title(ep->d_name);
+            ui_job(tmp, STATE_RUNNING);
+            pid_add(tmp, pid);
           }
         }
       }
       closedir(dp);
 
       runlevel++;
+      has_printed_runlevel = 0;
     }
 
     while(job_compl < job_count);
 
     free(active_pids);
+    free(title_buf);
 
     esc_toggle_cursor(1);
 
-    printf(CYAN "\nDone in " MAGENTA "%f" CYAN " seconds with %s%i" CYAN " failed job%s.\n" RESET, ((double)(clock()-start))/CLOCKS_PER_SEC, (n_failures==0?GREEN:RED), n_failures, (n_failures==1?"":"s"));
+    printf(CYAN "\n\nDone in " MAGENTA "%f" CYAN " seconds with %s%i" CYAN " failed job%s.\n" RESET, ((double)(clock()-start))/CLOCKS_PER_SEC, (n_failures==0?GREEN:RED), n_failures, (n_failures==1?"":"s"));
 
     return 0;
   } else {
@@ -290,11 +355,14 @@ int dir_scan(char *dir){
 //
 int main(int argc, char **argv){
   if(argc < 2){
-    printf(CYAN "script: a generic script dispatcher\n" YELLOW "Usage: script [directory with scripts]\n" BLUE "  Runs every executable file in " MAGENTA "[directory]" BLUE ", grouped by runlevel.\n" CYAN "  Runlevel is determined by the first character of each file's name.\n" RESET);
+    printf(CYAN "script: a generic script dispatcher\n" YELLOW "Usage:" GREEN " script " MAGENTA "[directory]\n" BLUE "  Runs every executable file in " MAGENTA "[directory]" BLUE ", grouped by runlevel.\n" CYAN "  Runlevel is determined by the first character of each file's name.\n" RESET);
     return 0;
   }
 
   signal(SIGCHLD, sighandler);
+  signal(SIGINT,  sighandler);
+  signal(SIGTERM, sighandler);
+  signal(SIGQUIT, sighandler);
 
   ui_init();
   ui_header();

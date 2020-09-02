@@ -2,12 +2,17 @@
 
 CFGFILE=/etc/network/interfaces
 
-ret=0
+find_ifaces() {
+  awk '$1 == "auto" {for (i = 2; i <= NF; i = i + 1) printf("%s ", $i)}' "$CFGFILE"
+}
+
+find_inet() {
+  awk -v iface="$1" '$2 == iface {printf("%s", $4)}' "$CFGFILE"
+}
+
 for iface in $(find_ifaces); do
-  if [ ! ifup -i $CFGFILE $iface >/dev/null ]; then
-    ifdown -i $CFGFILE $iface >/dev/null 2>&1
-    ret=1
+  ip link set dev $iface up
+  if [ $(find_inet $iface) = "dhcp" ] && [ ! $(pidof udhcpc >/dev/null) ]; then
+    udhcpc
   fi
 done
-
-exit $ret

@@ -21,12 +21,18 @@ I wrote this because I wanted a custom init which both booted quickly and was pl
 
 `script` groups scripts (which it calls "jobs") by runlevel, determined by the first character of each script's filename.
 
-If the first character of a given filename is between 0 and 9, that script is grouped into the appropriate runlevel, with 0 executing first and 9 executing last.  All other scripts run in parallel with one another after this.
+If the first character of a given filename is between 0 and 9, that job is grouped into the appropriate runlevel, with 0 executing first and 9 executing last.  All other jobs run in parallel with one another after this.
 
 In effect, `script` is usable without renaming or modifying any files, while also supporting sequential runlevels.
+
+### Title file
+
+In the directory of scripts to be executed, a file with the name `"title"` can be created which allows for jobs to have more user-friendly names or descriptions.  Its file format is as follows:
+
+     script-filename.sh: Name or description
+     example-two.sh: Hello world
 
 ### To-Do
 
 - Support overflow -- if more scripts execute than there are columns in the output terminal, visual artifacts appear
 - `stat()` files to check for executable bit
-- Add options to `config.h`

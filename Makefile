@@ -5,8 +5,9 @@ TCC=tcc
 
 LIBS=
 
-FLAGS=-O3 -s -pipe
-DEBUGFLAGS=-Og -Wall -pipe -g -ansi -pedantic
+FLAGS=-Os -s -pipe -DIS_DEBUG_BUILD
+DEBUGFLAGS=-Og -Wall -pipe -g -DIS_DEBUG_BUILD
+RELEASEFLAGS=-O3 -s -pipe
 
 SOURCES=script.c
 OUT=script
@@ -22,7 +23,7 @@ debug:
 	$(CC) $(SOURCES) -o $(OUT) $(LIBS) $(DEBUGFLAGS)
 
 release:
-	$(CC) $(SOURCES) -o $(OUT) $(LIBS) $(FLAGS)
+	$(CC) $(SOURCES) -o $(OUT) $(LIBS) $(RELEASEFLAGS)
 
 clean:
 	if [ -e "$(OUT)" ]; then $(RM) $(OUT); fi
