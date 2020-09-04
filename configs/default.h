@@ -1,5 +1,5 @@
 /*
- * config.h: script configuration
+ * default.h: default script configuration
  */
 
 /* script version */

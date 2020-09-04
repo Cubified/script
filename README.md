@@ -17,7 +17,7 @@ I wrote this to use in conjunction with my custom init [fpinit](https://github.c
 
 `make debug` can be run in place of `make`, which will disable the redirection of command output to `/dev/null` -- this may cause visual artifacts, but also provides useful information when investigating failed scripts.
 
-`config.h` allows for modification of the header text, with the default ANSI 8-color palette available as macros (visible in `script.c`).
+`config.h` allows for modification of nearly everything which is printed to the screen -- the ANSI color palette is available as defined in `script.c`.  Additionally, there are a number of preset configs available in the `configs/` directory which can be copied to `config.h` .
 
 ### Runlevels/Parallel Execution
 

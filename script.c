@@ -30,13 +30,13 @@
 //
 #define ESC "\x1b["
 
-#define RED     "\x1b[31m"
-#define GREEN   "\x1b[32m"
-#define YELLOW  "\x1b[33m"
-#define BLUE    "\x1b[34m"
-#define MAGENTA "\x1b[35m"
-#define CYAN    "\x1b[36m"
-#define RESET   "\x1b[0m"
+#define RED     ESC "31m"
+#define GREEN   ESC "32m"
+#define YELLOW  ESC "33m"
+#define BLUE    ESC "34m"
+#define MAGENTA ESC "35m"
+#define CYAN    ESC "36m"
+#define RESET   ESC "0m"
 
 #define IS_NOT_DIR(name) ((name[0] != '.' && name[1] != '\0') && \
                           (name[0] != '.' && name[1] != '.' && name[2] != '\0'))
@@ -132,7 +132,7 @@ void sighandler(int signo){
     free(title_buf);
     esc_toggle_cursor(1);
 
-    printf(YELLOW "\n\nHalting prematurely after " MAGENTA "%f" YELLOW " seconds with " BLUE "%i/%i" YELLOW " completed jobs.\n" RESET, ((double)(clock()-start))/CLOCKS_PER_SEC, job_compl, job_count);
+    printf(COLOR_WARNING "\n\nHalting prematurely after " COLOR_ACCENT_STRONG "%f" COLOR_WARNING " seconds with " COLOR_ACCENT_WEAK_1 "%i/%i" COLOR_WARNING " completed jobs.\n" COLOR_DEFAULT, ((double)(clock()-start))/CLOCKS_PER_SEC, job_compl, job_count);
 
     exit(0);
   } else if((pid = waitpid(-1, &status, WNOHANG)) != -1){
@@ -193,29 +193,29 @@ void ui_fill(int len, char c, char *color){
   for(i=0;i<len;i++){
     printf("%c", c);
   }
-  printf("%s", RESET);
+  printf("%s", COLOR_DEFAULT);
 }
 
 void ui_header(){
   int new_w, prog_len;
 
   progress = (double)job_compl/(double)(job_count==0?1:job_count);
-  new_w = ui_w-GREETING_LEN-5;
+  new_w = ui_w-GREETING_LEN-LEN_HEADER_LEFTCAP-LEN_HEADER_RIGHTCAP-1;
   prog_len = round(new_w*progress);
 
   esc_set_cursor(0, 0);
 
-  printf(CYAN "<= " GREETING CYAN " ");
-  ui_fill(prog_len, '=', GREEN);
-  ui_fill(new_w-prog_len, '.', CYAN);
-  printf("%s>" RESET, progress==1?GREEN:CYAN);
+  printf(COLOR_ACCENT_WEAK_2 TEXT_HEADER_LEFTCAP GREETING COLOR_ACCENT_WEAK_2 " ");
+  ui_fill(prog_len, CHAR_PROGRESS_COMPLETE, COLOR_PROGRESS_COMPLETE);
+  ui_fill(new_w-prog_len, CHAR_PROGRESS_INCOMPLETE, COLOR_PROGRESS_INCOMPLETE);
+  printf("%s" TEXT_HEADER_RIGHTCAP COLOR_DEFAULT, progress==1?COLOR_PROGRESS_COMPLETE:COLOR_PROGRESS_INCOMPLETE);
 }
 
 void ui_job(char *title, int state){
   char *state_text;
 
-  printf(" %s%s ", (state == STATE_FAILURE ? RED : (state == STATE_SUCCESS ? GREEN : RESET)), title);
-  ui_fill(ui_w-strlen(title)-9, '.', CYAN);
+  printf(" %s%s ", (state == STATE_FAILURE ? COLOR_FAILURE : (state == STATE_SUCCESS ? COLOR_SUCCESS : COLOR_DEFAULT)), title);
+  ui_fill(ui_w-strlen(title)-LEN_JOB_STATUS_TEXT-7, CHAR_JOB_SPACER, COLOR_ACCENT_WEAK_2);
 
   switch(state){
     case STATE_RUNNING:
@@ -223,20 +223,20 @@ void ui_job(char *title, int state){
       ui_y++;
       break;
     case STATE_SUCCESS:
-      state_text = GREEN "OK" RESET;
+      state_text = COLOR_SUCCESS TEXT_JOB_STATUS_SUCCESS COLOR_DEFAULT;
       break;
     case STATE_FAILURE:
-      state_text = RED "!!" RESET;
+      state_text = COLOR_FAILURE TEXT_JOB_STATUS_FAILURE COLOR_DEFAULT;
       break;
     default:
       return;
   }
 
-  printf(BLUE " [ %s " BLUE "]\n" RESET, state_text);
+  printf(COLOR_ACCENT_WEAK_1 " %c %s " COLOR_ACCENT_WEAK_1 "%c\n" COLOR_DEFAULT, CHAR_JOB_BRACKET_LEFT, state_text, CHAR_JOB_BRACKET_RIGHT);
 }
 
 void ui_runlevel(int runlevel){
-  printf(YELLOW "\n\nEntering runlevel %i\n" RESET, runlevel);
+  printf(COLOR_WARNING "\n\nEntering runlevel %i\n" COLOR_DEFAULT, runlevel);
   ui_y += 2;
 }
 
@@ -301,7 +301,7 @@ int dir_scan(char *dir){
         sprintf(buf, "%s/%s", dir, ep->d_name);
         fp = fopen(buf, "r");
         if(fp == NULL){
-          printf(RED "Error: failed to open file \"" MAGENTA "title" RED "\" for reading.\n");
+          printf(COLOR_FAILURE "Error: failed to open file \"" COLOR_ACCENT_STRONG "title" COLOR_FAILURE "\" for reading.\n");
           return 1;
         }
         fseek(fp, 0, SEEK_END);
@@ -359,11 +359,11 @@ int dir_scan(char *dir){
 
     esc_toggle_cursor(1);
 
-    printf(CYAN "\n\nDone in " MAGENTA "%f" CYAN " seconds with %s%i" CYAN " failed job%s.\n" RESET, ((double)(clock()-start))/CLOCKS_PER_SEC, (n_failures==0?GREEN:RED), n_failures, (n_failures==1?"":"s"));
+    printf(COLOR_ACCENT_WEAK_2 "\n\nDone in " COLOR_ACCENT_STRONG "%f" COLOR_ACCENT_WEAK_2 " seconds with %s%i" COLOR_ACCENT_WEAK_2 " failed job%s.\n" COLOR_DEFAULT, ((double)(clock()-start))/CLOCKS_PER_SEC, (n_failures==0?COLOR_SUCCESS:COLOR_FAILURE), n_failures, (n_failures==1?"":"s"));
 
     return 0;
   } else {
-    printf(RED "Unable to open directory \"" MAGENTA "%s" RED "\" for reading.\n" RESET, dir);
+    printf(COLOR_FAILURE "Unable to open directory \"" COLOR_ACCENT_STRONG "%s" COLOR_FAILURE "\" for reading.\n" COLOR_DEFAULT, dir);
     return 1;
   }
 }
@@ -373,7 +373,7 @@ int dir_scan(char *dir){
 //
 int main(int argc, char **argv){
   if(argc < 2){
-    printf(CYAN "script: a generic script dispatcher\n" YELLOW "Usage:" GREEN " script " MAGENTA "[directory]\n" BLUE "  Runs every executable file in " MAGENTA "[directory]" BLUE ", grouped by runlevel.\n" CYAN "  Runlevel is determined by the first character of each file's name.\n" RESET);
+    printf(COLOR_ACCENT_WEAK_2 "script: a generic script dispatcher\n" COLOR_WARNING "Usage:" COLOR_SUCCESS " script " COLOR_ACCENT_STRONG "[directory]\n" COLOR_ACCENT_WEAK_1 "  Runs every executable file in " COLOR_ACCENT_STRONG "[directory]" COLOR_ACCENT_WEAK_1 ", grouped by runlevel.\n" COLOR_ACCENT_WEAK_2 "  Runlevel is determined by the first character of each file's name.\n" COLOR_DEFAULT);
     return 0;
   }
 
