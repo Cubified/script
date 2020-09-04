@@ -3,10 +3,12 @@
  *
  * Usage: script [dir]
  *   Where dir is a folder containing init scripts to be run,
- *   such as init.d/
+ *   such as test_scripts/
  * 
  * TODO:
  *  - Properly handle overflow (i.e. when more lines are printed than are present onscreen)
+ *  - stat() files to check for executable bit
+ *  - pthreads support
  */
 
 #include <stdio.h>
@@ -26,8 +28,6 @@
 //////////////////////////////
 // PREPROCESSOR
 //
-#define VER "0.0.1"
-
 #define ESC "\x1b["
 
 #define RED     "\x1b[31m"
@@ -49,6 +49,24 @@
 // CONFIG
 //
 #include "config.h"
+
+#ifdef NO_COLOR
+#  undef  RED
+#  undef  GREEN
+#  undef  YELLOW
+#  undef  BLUE
+#  undef  MAGENTA
+#  undef  CYAN
+#  undef  RESET
+
+#  define RED     ""
+#  define GREEN   ""
+#  define YELLOW  ""
+#  define BLUE    ""
+#  define MAGENTA ""
+#  define CYAN    ""
+#  define RESET   ""
+#endif
 
 //////////////////////////////
 // ENUMS AND TYPEDEFS
@@ -114,7 +132,7 @@ void sighandler(int signo){
     free(title_buf);
     esc_toggle_cursor(1);
 
-    printf(YELLOW "\n\nHalting prematurely after " MAGENTA "%f" YELLOW " seconds with " BLUE "%i/%i" YELLOW " completed jobs.\n", ((double)(clock()-start))/CLOCKS_PER_SEC, job_compl, job_count);
+    printf(YELLOW "\n\nHalting prematurely after " MAGENTA "%f" YELLOW " seconds with " BLUE "%i/%i" YELLOW " completed jobs.\n" RESET, ((double)(clock()-start))/CLOCKS_PER_SEC, job_compl, job_count);
 
     exit(0);
   } else if((pid = waitpid(-1, &status, WNOHANG)) != -1){
@@ -175,7 +193,7 @@ void ui_fill(int len, char c, char *color){
   for(i=0;i<len;i++){
     printf("%c", c);
   }
-  printf(RESET);
+  printf("%s", RESET);
 }
 
 void ui_header(){
@@ -279,7 +297,7 @@ int dir_scan(char *dir){
       if(IS_NOT_DIR(ep->d_name) &&
          IS_NOT_TITLE(ep->d_name)){
         job_count++;
-      } else if(!IS_NOT_TITLE(ep->d_name)){
+      } else if(!(IS_NOT_TITLE(ep->d_name))){
         sprintf(buf, "%s/%s", dir, ep->d_name);
         fp = fopen(buf, "r");
         if(fp == NULL){

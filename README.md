@@ -15,6 +15,8 @@ I wrote this to use in conjunction with my custom init [fpinit](https://github.c
      $ make
      $ ./script [script directory]
 
+`make debug` can be run in place of `make`, which will disable the redirection of command output to `/dev/null` -- this may cause visual artifacts, but also provides useful information when investigating failed scripts.
+
 `config.h` allows for modification of the header text, with the default ANSI 8-color palette available as macros (visible in `script.c`).
 
 ### Runlevels/Parallel Execution
@@ -36,3 +38,4 @@ In the directory of scripts to be executed, a file with the name `"title"` can b
 
 - Support overflow -- if more scripts execute than there are columns in the output terminal, visual artifacts appear
 - `stat()` files to check for executable bit
+- Add pthreads support in place of `while` loops
