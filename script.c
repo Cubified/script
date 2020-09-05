@@ -16,7 +16,6 @@
 #include <string.h>
 #include <termios.h>
 #include <sys/ioctl.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <dirent.h>
@@ -85,16 +84,20 @@ typedef struct child {
 //////////////////////////////
 // STATIC DEFINITIONS
 //
+/*
+macro: void esc_clear();
+macro: void esc_set_cursor(int x, int y);
+macro: void esc_toggle_cursor(int state);
+*/
 void sighandler(int signo);
-void esc_clear();
-void esc_set_cursor(int x, int y);
-void esc_toggle_cursor(int state);
 void ui_init(int is_winch);
 void ui_fill(int len, char c, char *color);
 void ui_header();
 void ui_job(char *title, int state);
-void ui_runlevel(int runlevel);
-void pid_init();
+/*
+macro: void ui_runlevel(int runlevel);
+macro: void pid_init();
+*/
 void pid_add(char *name, pid_t pid);
 child *pid_find(pid_t pid);
 double time_get_elapsed();
@@ -116,6 +119,30 @@ double progress;
 struct timespec time_start, time_stop;
 
 child **active_pids;
+
+//////////////////////////////
+// ESCAPE SEQUENCES
+//
+#define esc_clear() puts(ESC "2J")
+/*
+void esc_clear(){
+  puts(ESC "2J");
+}
+*/
+
+#define esc_set_cursor(x, y) printf(ESC "%i;%iH", y, x)
+/*
+void esc_set_cursor(int x, int y){
+  printf(ESC "%i;%iH", y, x);
+}
+*/
+
+#define esc_toggle_cursor(state) printf(ESC "?25%c", (state == 1 ? 'h' : 'l'))
+/*
+void esc_toggle_cursor(int state){
+  printf(ESC "?25%c", (state == 1 ? 'h' : 'l'));
+}
+*/
 
 //////////////////////////////
 // SIGNALS
@@ -164,21 +191,6 @@ void sighandler(int signo){
   } else if(signo == SIGWINCH){
     ui_init(1);
   }
-}
-
-//////////////////////////////
-// ESCAPE SEQUENCES
-//
-void esc_clear(){
-  puts(ESC "2J");
-}
-
-void esc_set_cursor(int x, int y){
-  printf(ESC "%i;%iH", y, x);
-}
-
-void esc_toggle_cursor(int state){
-  printf(ESC "?25%c", (state == 1 ? 'h' : 'l'));
 }
 
 //////////////////////////////
@@ -245,7 +257,7 @@ void ui_job(char *title, int state){
 
   switch(state){
     case STATE_RUNNING:
-      state_text = "  ";
+      state_text = COLOR_WARNING TEXT_JOB_STATUS_RUNNING COLOR_DEFAULT;
       ui_y++;
       break;
     case STATE_SUCCESS:
@@ -261,17 +273,23 @@ void ui_job(char *title, int state){
   printf(COLOR_ACCENT_WEAK_1 " %c %s " COLOR_ACCENT_WEAK_1 "%c\n" COLOR_DEFAULT, CHAR_JOB_BRACKET_LEFT, state_text, CHAR_JOB_BRACKET_RIGHT);
 }
 
+#define ui_runlevel(runlevel) printf(COLOR_WARNING "\n\nEntering runlevel %i\n" COLOR_DEFAULT, runlevel); ui_y += 2
+/*
 void ui_runlevel(int runlevel){
   printf(COLOR_WARNING "\n\nEntering runlevel %i\n" COLOR_DEFAULT, runlevel);
   ui_y += 2;
 }
+*/
 
 //////////////////////////////
 // CHILD PROCESSES
 //
+#define pid_init() active_pids = malloc(job_count*sizeof(child*))
+/*
 void pid_init(){
   active_pids = malloc(job_count*sizeof(child*));
 }
+*/
 
 void pid_add(char *name, pid_t pid){
   active_pids[job_ind] = malloc(sizeof(child));

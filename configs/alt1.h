@@ -1,5 +1,5 @@
 /*
- * block.h: block-based progress bars
+ * alt1.h: alternative script configuration 1
  */
 
 /* script version */
@@ -41,24 +41,24 @@
 #define COLOR_ACCENT_WEAK_2   CYAN
 #define COLOR_ACCENT_STRONG   MAGENTA
 
-#define COLOR_PROGRESS_COMPLETE   "\x1b[42m"
-#define COLOR_PROGRESS_INCOMPLETE "\x1b[0m"
+#define COLOR_PROGRESS_COMPLETE   GREEN
+#define COLOR_PROGRESS_INCOMPLETE BLUE
 
 /* Characters */
-#define CHAR_PROGRESS_COMPLETE ' '
-#define CHAR_PROGRESS_INCOMPLETE ' '
+#define CHAR_PROGRESS_COMPLETE '_'
+#define CHAR_PROGRESS_INCOMPLETE '_'
 
-#define CHAR_JOB_SPACER ' '
-#define CHAR_JOB_BRACKET_LEFT '['
-#define CHAR_JOB_BRACKET_RIGHT ']'
+#define CHAR_JOB_SPACER '_'
+#define CHAR_JOB_BRACKET_LEFT '<'
+#define CHAR_JOB_BRACKET_RIGHT '>'
 
 /* Strings */
-#define TEXT_HEADER_LEFTCAP  ""
-#define TEXT_HEADER_RIGHTCAP ""
-#define LEN_HEADER_LEFTCAP 0
-#define LEN_HEADER_RIGHTCAP 0
+#define TEXT_HEADER_LEFTCAP  "> "
+#define TEXT_HEADER_RIGHTCAP "_"
+#define LEN_HEADER_LEFTCAP 2
+#define LEN_HEADER_RIGHTCAP 1
 
-#define TEXT_JOB_STATUS_RUNNING "██"
-#define TEXT_JOB_STATUS_SUCCESS "██"
-#define TEXT_JOB_STATUS_FAILURE "██"
-#define LEN_JOB_STATUS_TEXT 2
+#define TEXT_JOB_STATUS_RUNNING "wait"
+#define TEXT_JOB_STATUS_SUCCESS "good"
+#define TEXT_JOB_STATUS_FAILURE "fail"
+#define LEN_JOB_STATUS_TEXT 4
