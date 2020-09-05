@@ -38,4 +38,3 @@ In the directory of scripts to be executed, a file with the name `"title"` can b
 
 - Support overflow -- if more scripts execute than there are columns in the output terminal, visual artifacts appear
 - `stat()` files to check for executable bit
-- Add pthreads support in place of `while` loops

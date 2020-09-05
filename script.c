@@ -8,7 +8,6 @@
  * TODO:
  *  - Properly handle overflow (i.e. when more lines are printed than are present onscreen)
  *  - stat() files to check for executable bit
- *  - pthreads support
  */
 
 #include <stdio.h>
@@ -66,7 +65,7 @@
 #  define MAGENTA ""
 #  define CYAN    ""
 #  define RESET   ""
-#endif
+#endif /* NO_COLOR */
 
 //////////////////////////////
 // ENUMS AND TYPEDEFS
@@ -90,7 +89,7 @@ void sighandler(int signo);
 void esc_clear();
 void esc_set_cursor(int x, int y);
 void esc_toggle_cursor(int state);
-void ui_init();
+void ui_init(int is_winch);
 void ui_fill(int len, char c, char *color);
 void ui_header();
 void ui_job(char *title, int state);
@@ -98,6 +97,7 @@ void ui_runlevel(int runlevel);
 void pid_init();
 void pid_add(char *name, pid_t pid);
 child *pid_find(pid_t pid);
+double time_get_elapsed();
 char *dir_title(char *filename);
 int dir_scan(char *dir);
 
@@ -113,7 +113,7 @@ volatile sig_atomic_t job_compl = 0;
 int n_failures = 0;
 char *title_buf;
 double progress;
-clock_t start;
+struct timespec time_start, time_stop;
 
 child **active_pids;
 
@@ -132,10 +132,10 @@ void sighandler(int signo){
     free(title_buf);
     esc_toggle_cursor(1);
 
-    printf(COLOR_WARNING "\n\nHalting prematurely after " COLOR_ACCENT_STRONG "%f" COLOR_WARNING " seconds with " COLOR_ACCENT_WEAK_1 "%i/%i" COLOR_WARNING " completed jobs.\n" COLOR_DEFAULT, ((double)(clock()-start))/CLOCKS_PER_SEC, job_compl, job_count);
+    printf(COLOR_WARNING "\n\nHalting prematurely after " COLOR_ACCENT_STRONG "%f" COLOR_WARNING " seconds with " COLOR_ACCENT_WEAK_1 "%i/%i" COLOR_WARNING " completed jobs.\n" COLOR_DEFAULT, time_get_elapsed(), job_compl, job_count);
 
-    exit(0);
-  } else if((pid = waitpid(-1, &status, WNOHANG)) != -1){
+    exit(n_failures);
+  } else if(signo == SIGCHLD && (pid = waitpid(-1, &status, WNOHANG)) != -1){
     if((proc=pid_find(pid)) != NULL){
       job_compl++;
       if(status != STATE_SUCCESS){
@@ -149,7 +149,20 @@ void sighandler(int signo){
       
       free(proc->name);
       free(proc);
+
+      if(job_compl == job_count){
+        free(active_pids);
+        free(title_buf);
+
+        esc_toggle_cursor(1);
+
+        printf(COLOR_ACCENT_WEAK_2 "\n\nDone in " COLOR_ACCENT_STRONG "%f" COLOR_ACCENT_WEAK_2 " seconds with %s%i" COLOR_ACCENT_WEAK_2 " failed job%s.\n" COLOR_DEFAULT, time_get_elapsed(), (n_failures==0?COLOR_SUCCESS:COLOR_FAILURE), n_failures, (n_failures==1?"":"s"));
+
+        exit(n_failures);
+      }
     }
+  } else if(signo == SIGWINCH){
+    ui_init(1);
   }
 }
 
@@ -171,20 +184,33 @@ void esc_toggle_cursor(int state){
 //////////////////////////////
 // UI
 //
-void ui_init(){
+void ui_init(int is_winch){
   struct winsize s;
 
-  esc_clear();
-  esc_toggle_cursor(0);
-
   ioctl(1, TIOCGWINSZ, &s);
+
+  /* Only clear when window has been scaled down
+   * (prevents line wrapping-related artifacts)
+   * 
+   * Not a perfect solution, but much less jarring
+   * than not clearing the screen
+   */
+  if(is_winch && s.ws_col < ui_w){
+    esc_clear();
+  }
+
   ui_w = s.ws_col;
   ui_h = s.ws_row;
 
-  ui_x = 0;
-  ui_y = 1;
+  if(!is_winch){
+    esc_clear();
+    esc_toggle_cursor(0);
 
-  progress = 0;
+    ui_x = 0;
+    ui_y = 1;
+
+    progress = 0;
+  }
 }
 
 void ui_fill(int len, char c, char *color){
@@ -266,6 +292,24 @@ child *pid_find(pid_t pid){
   return NULL;
 }
 
+//////////////////////////////
+// CLOCK
+//
+double time_get_elapsed(){
+  double out;
+
+  clock_gettime(CLOCK_REALTIME, &time_stop);
+
+  out = (time_stop.tv_sec - time_start.tv_sec) * 1000.0;
+  out += (time_stop.tv_nsec - time_start.tv_nsec) / 1000000.0;
+  out /= 1000.0;
+
+  return out;
+}
+
+//////////////////////////////
+// DIRECTORY SCANNING
+//
 char *dir_title(char *filename){
   char *substr, out[256];
   
@@ -282,16 +326,16 @@ char *dir_title(char *filename){
 int dir_scan(char *dir){
   DIR *dp;
   FILE *fp;
-  int fd, i,
+  int fd, i, sig_out,
       runlevel = 0,
       has_printed_runlevel = 0;
   pid_t pid;
   char buf[512], *tmp;
   struct dirent *ep;
-  dp = opendir(dir);
 
+  dp = opendir(dir);
   if(dp != NULL){
-    start = clock();
+    clock_gettime(CLOCK_REALTIME, &time_start);
 
     while((ep = readdir(dp))){
       if(IS_NOT_DIR(ep->d_name) &&
@@ -317,8 +361,6 @@ int dir_scan(char *dir){
     pid_init();
 
     while(runlevel <= 10){
-      while(job_compl < job_count_runlevel);
-
       dp = opendir(dir);
       while((ep = readdir(dp))){
         if(IS_NOT_DIR(ep->d_name) &&
@@ -332,7 +374,7 @@ int dir_scan(char *dir){
             dup2(fd, 1);
             dup2(fd, 2);
             close(fd);
-#endif
+#endif /* IS_DEBUG_BUILD */
 
             execv(buf, NULL);
           } else {
@@ -350,21 +392,16 @@ int dir_scan(char *dir){
 
       runlevel++;
       has_printed_runlevel = 0;
+
+      if(job_count_runlevel > job_compl){
+        pause();
+      }
     }
 
-    while(job_compl < job_count);
-
-    free(active_pids);
-    free(title_buf);
-
-    esc_toggle_cursor(1);
-
-    printf(COLOR_ACCENT_WEAK_2 "\n\nDone in " COLOR_ACCENT_STRONG "%f" COLOR_ACCENT_WEAK_2 " seconds with %s%i" COLOR_ACCENT_WEAK_2 " failed job%s.\n" COLOR_DEFAULT, ((double)(clock()-start))/CLOCKS_PER_SEC, (n_failures==0?COLOR_SUCCESS:COLOR_FAILURE), n_failures, (n_failures==1?"":"s"));
-
-    return 0;
+    pause();
   } else {
     printf(COLOR_FAILURE "Unable to open directory \"" COLOR_ACCENT_STRONG "%s" COLOR_FAILURE "\" for reading.\n" COLOR_DEFAULT, dir);
-    return 1;
+    return -1;
   }
 }
 
@@ -377,12 +414,13 @@ int main(int argc, char **argv){
     return 0;
   }
 
-  signal(SIGCHLD, sighandler);
-  signal(SIGINT,  sighandler);
-  signal(SIGTERM, sighandler);
-  signal(SIGQUIT, sighandler);
+  signal(SIGCHLD,  sighandler);
+  signal(SIGINT,   sighandler);
+  signal(SIGTERM,  sighandler);
+  signal(SIGQUIT,  sighandler);
+  signal(SIGWINCH, sighandler);
 
-  ui_init();
+  ui_init(0);
   ui_header();
 
   return dir_scan(argv[1]);
