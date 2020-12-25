@@ -10,17 +10,16 @@
 
 /* Header text displayed at top of screen next to progress bar
  *
- * If you would like to define your own greeting text which is determined at compile-time,
- *  define DO_NOT_DEFINE_GREETING, GREETING, and GREETING_LEN on the command line --
- *  refer to https://github.com/Cubified/fpinit/blob/master/Makefile for an example
+ * If you would like to define your own greeting text which is determined at runtime,
+ *  define DO_NOT_DEFINE_GREETING and GREETING_CMD on the command line
+ *  
+ * Refer to https://github.com/Cubified/fpinit/blob/master/Makefile for an example
  */
 #ifndef DO_NOT_DEFINE_GREETING
 #  ifdef IS_DEBUG_BUILD
-#    define GREETING truecolor("0", "0", "255") "script " truecolor("0", "255", "0") "v" VER truecolor("255", "0", "255") " (debug)"
-#    define GREETING_LEN  21
+#    define GREETING_CMD "printf '" truecolor("0", "0", "255") "script " truecolor("0", "255", "0") "v" VER truecolor("255", "0", "255") " (debug)'"
 #  else
-#    define GREETING truecolor("0", "0", "255") "s" truecolor("0", "55", "200") "c" truecolor("0", "100", "100") "r" truecolor("0", "150", "50") "i" truecolor("0", "200", "0") "p" truecolor("0", "255", "0") "t " truecolor("0", "255", "0") "v" VER
-#    define GREETING_LEN  13
+#    define GREETING_CMD "printf '" truecolor("0", "0", "255") "s" truecolor("0", "55", "200") "c" truecolor("0", "100", "100") "r" truecolor("0", "150", "50") "i" truecolor("0", "200", "0") "p" truecolor("0", "255", "0") "t " truecolor("0", "255", "0") "v" VER "'"
 #  endif /* IS_DEBUG_BUILD */
 #endif /* DO_NOT_DEFINE_GREETING */
 

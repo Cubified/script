@@ -235,15 +235,28 @@ void ui_fill(int len, char c, char *color){
 }
 
 void ui_header(){
-  int new_w, prog_len;
+  int new_w, prog_len, greeting_len;
+  FILE *fp;
+  char outp[512],
+       outl[8];
 
-  progress = (double)job_compl/(double)(job_count==0?1:job_count);
-  new_w = ui_w-GREETING_LEN-LEN_HEADER_LEFTCAP-LEN_HEADER_RIGHTCAP-1;
-  prog_len = round(new_w*progress);
+  fp = popen(GREETING_CMD, "r");
+  fgets(outp, sizeof(outp), fp);
+  pclose(fp);
 
   esc_set_cursor(0, 0);
+  printf(COLOR_ACCENT_WEAK_2 TEXT_HEADER_LEFTCAP "%s" COLOR_ACCENT_WEAK_2 " ", outp);
 
-  printf(COLOR_ACCENT_WEAK_2 TEXT_HEADER_LEFTCAP GREETING COLOR_ACCENT_WEAK_2 " ");
+  fp = popen(GREETING_CMD " | sed -r \"s/\\x1b\\[[^@-~]*[@-~]//g\" | wc -m", "r");
+  fgets(outl, sizeof(outl), fp);
+  pclose(fp);
+
+  greeting_len = strtol(outl, (char**)&outl+sizeof(outl), 10);
+
+  progress = (double)job_compl/(double)(job_count==0?1:job_count);
+  new_w = ui_w-greeting_len-LEN_HEADER_LEFTCAP-LEN_HEADER_RIGHTCAP-1;
+  prog_len = round(new_w*progress);
+
   ui_fill(prog_len, CHAR_PROGRESS_COMPLETE, COLOR_PROGRESS_COMPLETE);
   ui_fill(new_w-prog_len, CHAR_PROGRESS_INCOMPLETE, COLOR_PROGRESS_INCOMPLETE);
   printf("%s" TEXT_HEADER_RIGHTCAP COLOR_DEFAULT, progress==1?COLOR_PROGRESS_COMPLETE:COLOR_PROGRESS_INCOMPLETE);

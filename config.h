@@ -8,16 +8,15 @@
 /* Header text displayed at top of screen next to progress bar
  *
  * If you would like to define your own greeting text which is determined at compile-time,
- *  define DO_NOT_DEFINE_GREETING, GREETING, and GREETING_LEN on the command line --
- *  refer to https://github.com/Cubified/fpinit/blob/master/Makefile for an example
+ *  define DO_NOT_DEFINE_GREETING and GREETING_CMD on the command line
+ *
+ * Refer to https://github.com/Cubified/fpinit/blob/master/Makefile for an example
  */
 #ifndef DO_NOT_DEFINE_GREETING
 #  ifdef IS_DEBUG_BUILD
-#    define GREETING BLUE "script " GREEN "v" VER MAGENTA " (debug)"
-#    define GREETING_LEN  21
+#    define GREETING_CMD "printf '" BLUE "script " GREEN "v" VER MAGENTA " (debug)'"
 #  else
-#    define GREETING BLUE "script " GREEN "v" VER
-#    define GREETING_LEN  13
+#    define GREETING_CMD "printf '" BLUE "script " GREEN "v" VER "'"
 #  endif /* IS_DEBUG_BUILD */
 #endif /* DO_NOT_DEFINE_GREETING */
 
